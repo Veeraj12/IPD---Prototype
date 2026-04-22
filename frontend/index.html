@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Traffic Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+  <!-- ── Header ─────────────────────────────────────────────────── -->
+  <header>
+    <div class="logo">
+      <div class="logo-dot"></div>
+      <span>TrafficAI</span>
+    </div>
+    <div class="header-right">
+      <span id="video-label" class="video-label">No video</span>
+      <div id="live-badge" class="badge badge-idle">● CONNECTING</div>
+    </div>
+  </header>
+
+  <!-- ── Main grid ──────────────────────────────────────────────── -->
+  <main>
+
+    <!-- Left: Video + upload -->
+    <section class="video-panel">
+
+      <!-- Stream display -->
+      <div class="video-wrap">
+        <img id="stream"
+             src="http://127.0.0.1:8000/stream/"
+             alt="Live Stream"
+             onload="onStreamLoad()"
+             onerror="onStreamError()"/>
+        <div id="stream-overlay" class="stream-overlay">
+          <div class="spinner"></div>
+          <p>Connecting to stream…</p>
+        </div>
+      </div>
+
+      <!-- Upload zone -->
+      <div id="drop-zone" class="drop-zone"
+           ondragover="onDragOver(event)"
+           ondragleave="onDragLeave(event)"
+           ondrop="onDrop(event)"
+           onclick="document.getElementById('file-input').click()">
+        <input type="file" id="file-input" accept="video/*" style="display:none"
+               onchange="uploadFile(this.files[0])"/>
+        <div class="drop-icon">🎬</div>
+        <div class="drop-text">
+          <strong>Drop any video here</strong>
+          <span>or click to browse — mp4, avi, mkv, mov…</span>
+        </div>
+      </div>
+
+      <!-- Upload progress (hidden by default) -->
+      <div id="upload-progress" class="upload-progress hidden">
+        <div class="progress-info">
+          <span id="upload-filename">Uploading…</span>
+          <span id="upload-pct">0%</span>
+        </div>
+        <div class="progress-track">
+          <div id="progress-bar" class="progress-fill"></div>
+        </div>
+        <div id="upload-status" class="upload-status"></div>
+      </div>
+
+      <div class="video-footer">
+        <span class="mono" id="frame-counter">Frame —</span>
+        <span class="cam-label">📷 Camera 1 · Live</span>
+      </div>
+    </section>
+
+    <!-- Right: Stats -->
+    <aside class="stats-panel">
+
+      <div class="stat-card accent-green">
+        <div class="stat-icon">⬅️</div>
+        <div class="stat-body">
+          <div class="stat-label">Lane A (Left)</div>
+          <div class="stat-value" id="lane-a-count" style="margin-bottom:8px">—</div>
+          <div id="signal-a" style="display:inline-block; padding:4px 8px; border-radius:6px; font-weight:bold; font-size:12px; background:#444; color:#fff;">Yellow</div>
+        </div>
+      </div>
+
+      <div class="stat-card accent-blue">
+        <div class="stat-icon">➡️</div>
+        <div class="stat-body">
+          <div class="stat-label">Lane B (Right)</div>
+          <div class="stat-value" id="lane-b-count" style="margin-bottom:8px">—</div>
+          <div id="signal-b" style="display:inline-block; padding:4px 8px; border-radius:6px; font-weight:bold; font-size:12px; background:#444; color:#fff;">Yellow</div>
+        </div>
+      </div>
+
+      <div class="stat-card accent-amber">
+        <div class="stat-icon">🆔</div>
+        <div class="stat-body">
+          <div class="stat-label">Total Unique Vehicles</div>
+          <div class="stat-value" id="total-unique">—</div>
+        </div>
+        <div class="stat-bar-wrap">
+          <div class="stat-bar" id="bar-unique"></div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">Vehicle Count History</div>
+        <canvas id="chart" width="300" height="120"></canvas>
+      </div>
+
+      <div id="status-bar" class="status-bar status-idle">Waiting for stream…</div>
+
+    </aside>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
