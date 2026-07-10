@@ -29,6 +29,7 @@ const $progressBar = document.getElementById('progress-bar');
 const $uploadStat  = document.getElementById('upload-status');
 const canvas       = document.getElementById('chart');
 const ctx          = canvas.getContext('2d');
+const $snapshotWrap = document.getElementById('snapshot-wrap');
 
 // ── Stream events ──────────────────────────────────────────────────────────
 function onStreamLoad() {
@@ -205,6 +206,7 @@ function uploadFile(file) {
       );
       // Refresh stream to pick up new video
       refreshStream();
+      $snapshotWrap.classList.remove('hidden');
     } else {
       let msg = 'Upload failed.';
       try { msg = JSON.parse(xhr.responseText).error || msg; } catch(_) {}
@@ -246,3 +248,95 @@ function setStatus(type, msg) {
 // ── Init ───────────────────────────────────────────────────────────────────
 drawChart();
 setStatus('idle', 'Connecting to Django server…');
+
+
+async function takeSnapshot() {
+  try {
+    const res = await fetch("http://127.0.0.1:8000/snapshot/");
+
+    if (!res.ok) {
+      alert("Failed to capture snapshot");
+      return;
+    }
+
+    const blob = await res.blob();
+
+    const reader = new FileReader();
+
+    reader.onloadend = function () {
+      localStorage.setItem("snapshotImage", reader.result);
+      window.location.href = "snapshot.html";
+    };
+
+    reader.readAsDataURL(blob);
+
+  } catch (err) {
+    console.error(err);
+    alert("Snapshot error");
+  }
+}
+function updateDashboard(data){
+
+  const greenLane = data.green_lane;
+  const state = data.signal_state;
+  const timer = data.timer ?? 0;
+
+  const cardA = document.querySelector(".accent-green");
+  const cardB = document.querySelector(".accent-blue");
+
+  const sigA = document.getElementById("signal-a");
+  const sigB = document.getElementById("signal-b");
+
+  const tA = document.getElementById("timer-a");
+  const tB = document.getElementById("timer-b");
+
+  cardA.classList.remove("active-card");
+  cardB.classList.remove("active-card");
+
+  // reset classes
+  sigA.className = "signal-pill";
+  sigB.className = "signal-pill";
+
+  if(state === "GREEN"){
+
+      if(greenLane === 0){
+          sigA.textContent = "Green";
+          sigA.classList.add("sig-green");
+
+          sigB.textContent = "Red";
+          sigB.classList.add("sig-red");
+
+          cardA.classList.add("active-card");
+      }
+      else if(greenLane === 1){
+          sigB.textContent = "Green";
+          sigB.classList.add("sig-green");
+
+          sigA.textContent = "Red";
+          sigA.classList.add("sig-red");
+
+          cardB.classList.add("active-card");
+      }
+
+  }else if(state === "YELLOW"){
+
+      sigA.textContent = "Yellow";
+      sigB.textContent = "Yellow";
+
+      sigA.classList.add("sig-yellow");
+      sigB.classList.add("sig-yellow");
+  }
+
+  tA.textContent = timer + "s";
+  tB.textContent = timer + "s";
+
+  // counts
+document.getElementById("lane-a-count").textContent =
+   ((data.density?.["0"] || 0) * 100).toFixed(1) + "%";
+
+document.getElementById("lane-b-count").textContent =
+   ((data.density?.["1"] || 0) * 100).toFixed(1) + "%";
+   
+  document.getElementById("total-unique").textContent =
+      data.total_unique ?? 0;
+}

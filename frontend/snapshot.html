@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Road Polygon Setup</title>
+<link rel="stylesheet" href="polygon.css">
+</head>
+<body>
+
+<div class="layout">
+
+  <div class="left-panel">
+    <h1>Road Polygon Setup</h1>
+
+    <div class="canvas-wrap">
+      <canvas id="roadCanvas"></canvas>
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <h2>Controls</h2>
+
+    <div class="lane-box">
+      Current Lane: <span id="laneName">Lane 1</span>
+    </div>
+
+    <button onclick="newLane()">New Lane</button>
+    <button onclick="undoPoint()"> Undo Point</button>
+    <button onclick="clearLane()">Clear Lane</button>
+    <button onclick="savePolygons()">Save All</button>
+
+    <pre id="jsonPreview"></pre>
+  </div>
+
+</div>
+
+<script src="polygon.js"></script>
+</body>
+</html>

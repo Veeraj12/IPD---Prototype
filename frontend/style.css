@@ -24,6 +24,44 @@ html, body {
   overflow: hidden;
 }
 
+.snapshot-btn{
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:12px;
+  background:#0cce6b;
+  color:white;
+  font-weight:700;
+  cursor:pointer;
+  font-size:16px;
+  transition:0.2s;
+}
+.video-panel{
+   overflow:visible;
+}
+
+.snapshot-btn:hover{
+  transform:scale(1.02);
+  background:#09b85e;
+}.snapshot-btn{
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:12px;
+  background:#0cce6b;
+  color:white;
+  font-weight:700;
+  cursor:pointer;
+  font-size:16px;
+  transition:0.2s;
+}
+
+.snapshot-btn:hover{
+  transform:scale(1.02);
+  background:#09b85e;
+}
+
+
 .mono { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
 .hidden { display: none !important; }
 
@@ -95,19 +133,18 @@ main {
   min-height: 0;
 }
 
-.video-wrap {
-  position: relative;
-  flex: 1;
-  background: #000;
-  border-radius: var(--radius);
-  overflow: hidden;
-  border: 1px solid var(--border);
-  min-height: 0;
+.video-wrap{
+ display:flex;
+ justify-content:center;
+ align-items:center;
+ background:#000;
+ overflow:hidden;
 }
 
-.video-wrap img#stream {
-  width: 100%; height: 100%;
-  object-fit: cover; display: block;
+#stream{
+ width:100%;
+ height:100%;
+ object-fit:contain;
 }
 
 .stream-overlay {
@@ -272,3 +309,30 @@ canvas { display:block; width:100% !important; }
 .status-idle  { background:var(--surface2); color:var(--muted); }
 .status-live  { background:rgba(34,216,122,.1); color:var(--green); }
 .status-error { background:rgba(255,79,79,.1);  color:var(--red); }
+
+.signal-pill{
+  display:inline-block;
+  padding:6px 10px;
+  border-radius:8px;
+  font-size:13px;
+  font-weight:700;
+  color:#fff;
+}
+
+.sig-green{ background:#16a34a; }
+.sig-red{ background:#ef4444; }
+.sig-yellow{ background:#f59e0b; }
+
+.lane-timer{
+  margin-top:10px;
+  font-size:26px;
+  font-weight:800;
+  color:#fff;
+  letter-spacing:1px;
+}
+
+.active-card{
+  box-shadow:0 0 20px rgba(34,197,94,.28);
+  transform:translateY(-2px);
+  transition:.25s ease;
+}
