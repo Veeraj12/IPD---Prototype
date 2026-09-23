@@ -65,37 +65,37 @@ async function fetchStats() {
   } catch (_) {}
 }
 
-function updateDashboard(data) {
-  const cA = data.zone_a_count ?? 0;
-  const cB = data.zone_b_count ?? 0;
-  const sA = data.signal_a     ?? 'Yellow';
-  const sB = data.signal_b     ?? 'Yellow';
-  const tu = data.total_unique ?? 0;
-  const fr = data.frame        ?? 0;
-  const vn = data.video_name   ?? '';
+// function updateDashboard(data) {
+//   const cA = data.zone_a_count ?? 0;
+//   const cB = data.zone_b_count ?? 0;
+//   const sA = data.signal_a     ?? 'Yellow';
+//   const sB = data.signal_b     ?? 'Yellow';
+//   const tu = data.total_unique ?? 0;
+//   const fr = data.frame        ?? 0;
+//   const vn = data.video_name   ?? '';
 
-  animateValue($laneA, cA);
-  animateValue($laneB, cB);
-  animateValue($uniqueVal, tu);
+//   animateValue($laneA, cA);
+//   animateValue($laneB, cB);
+//   animateValue($uniqueVal, tu);
 
-  // Update BADGES explicitly
-  $signalA.textContent = sA;
-  $signalA.style.background = sA.includes("Green") ? "#0cce6b" : "#ff4f4f";
+//   // Update BADGES explicitly
+//   $signalA.textContent = sA;
+//   $signalA.style.background = sA.includes("Green") ? "#0cce6b" : "#ff4f4f";
   
-  $signalB.textContent = sB;
-  $signalB.style.background = sB.includes("Green") ? "#0cce6b" : "#ff4f4f";
+//   $signalB.textContent = sB;
+//   $signalB.style.background = sB.includes("Green") ? "#0cce6b" : "#ff4f4f";
 
-  $frameCount.textContent  = `Frame ${fr.toLocaleString()}`;
-  if (vn) $videoLabel.textContent = vn;
+//   $frameCount.textContent  = `Frame ${fr.toLocaleString()}`;
+//   if (vn) $videoLabel.textContent = vn;
 
-  $barU.style.width = `${Math.min(tu / 50, 1) * 100}%`;
+//   $barU.style.width = `${Math.min(tu / 50, 1) * 100}%`;
 
-  // Plot TOTAL vehicles in chart
-  const vc = cA + cB;
-  history.push(vc);
-  if (history.length > HISTORY_N) history.shift();
-  drawChart();
-}
+//   // Plot TOTAL vehicles in chart
+//   const vc = cA + cB;
+//   history.push(vc);
+//   if (history.length > HISTORY_N) history.shift();
+//   drawChart();
+// }
 
 // ── Animated counter ───────────────────────────────────────────────────────
 function animateValue(el, target) {
@@ -202,7 +202,7 @@ function uploadFile(file) {
       const data = JSON.parse(xhr.responseText);
       const dur  = (data.frames / data.fps).toFixed(1);
       showUploadResult('ok',
-        `✅ Loaded: ${data.filename}  |  ${data.frames.toLocaleString()} frames  |  ${dur}s  |  ${data.width}×${data.height}`
+        ` Loaded: ${data.filename}  |  ${data.frames.toLocaleString()} frames  |  ${dur}s  |  ${data.width}×${data.height}`
       );
       // Refresh stream to pick up new video
       refreshStream();
@@ -210,12 +210,12 @@ function uploadFile(file) {
     } else {
       let msg = 'Upload failed.';
       try { msg = JSON.parse(xhr.responseText).error || msg; } catch(_) {}
-      showUploadResult('err', `❌ ${msg}`);
+      showUploadResult('err', ` ${msg}`);
     }
   });
 
   xhr.addEventListener('error', () => {
-    showUploadResult('err', '❌ Network error — is the Django server running?');
+    showUploadResult('err', ' Network error — is the Django server running?');
   });
 
   xhr.open('POST', UPLOAD_URL);
@@ -233,7 +233,7 @@ function refreshStream() {
   const img = document.getElementById('stream');
   $overlay.classList.remove('hidden');
   $badge.className   = 'badge badge-idle';
-  $badge.textContent = '● LOADING';
+  $badge.textContent = 'LOADING';
   setTimeout(() => {
     img.src = `${API_BASE}/stream/?t=${Date.now()}`;
   }, 800);  // small delay so server restarts its generator with new video
