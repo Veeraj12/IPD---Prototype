@@ -41,8 +41,96 @@ _current_stats = {
 latest_clean_frame = None
 
 # ==========================================================
+# PERFORMANCE INSTRUMENTATION
+# ==========================================================
+# Aggregated every 100 frames and printed as a single report so that
+# per-frame logging does not add overhead to the hot path.
+_perf_lock = threading.Lock()
+_perf = {
+    "frames": 0,
+    "detections": 0,
+    "yolo_total": 0.0,
+    "tracking_total": 0.0,
+    "drawing_total": 0.0,
+    "jpeg_total": 0.0,
+    "processing_total": 0.0,
+    "jpeg_bytes": 0,
+    "start_time": None,
+}
+
+_PERF_REPORT_EVERY = 100
+
+
+def _print_perf_report_locked():
+    """Must be called while holding _perf_lock."""
+    frames = _perf["frames"]
+    if frames == 0:
+        return
+
+    now = time.perf_counter()
+    window_elapsed = now - _perf["start_time"] if _perf["start_time"] else 0.0
+    fps = frames / window_elapsed if window_elapsed > 0 else 0.0
+
+    detections = _perf["detections"]
+    yolo_avg_ms = (_perf["yolo_total"] / detections * 1000) if detections else 0.0
+    tracking_avg_ms = (_perf["tracking_total"] / detections * 1000) if detections else 0.0
+
+    drawing_avg_ms = (_perf["drawing_total"] / frames) * 1000
+    jpeg_avg_ms = (_perf["jpeg_total"] / frames) * 1000
+    total_avg_ms = (_perf["processing_total"] / frames) * 1000
+    avg_jpeg_kb = (_perf["jpeg_bytes"] / frames) / 1024.0
+
+    print("========== PERFORMANCE ==========")
+    print(f"Frames processed       : {frames}")
+    print(f"Detection runs         : {detections}")
+    print(f"Processing FPS         : {fps:.2f}")
+    print(f"YOLO avg               : {yolo_avg_ms:.2f} ms")
+    print(f"Tracking + density avg : {tracking_avg_ms:.2f} ms")
+    print(f"Drawing avg            : {drawing_avg_ms:.2f} ms")
+    print(f"JPEG encoding avg      : {jpeg_avg_ms:.2f} ms")
+    print(f"Total processing avg   : {total_avg_ms:.2f} ms")
+    print(f"Average JPEG size      : {avg_jpeg_kb:.2f} KB")
+    print("=================================")
+
+    # Reset the window so the next report reflects the next N frames only.
+    _perf["frames"] = 0
+    _perf["detections"] = 0
+    _perf["yolo_total"] = 0.0
+    _perf["tracking_total"] = 0.0
+    _perf["drawing_total"] = 0.0
+    _perf["jpeg_total"] = 0.0
+    _perf["processing_total"] = 0.0
+    _perf["jpeg_bytes"] = 0
+    _perf["start_time"] = now
+
+
+def _record_frame_perf(drawing_time, jpeg_time, jpeg_size, total_time,
+                        detected, yolo_time=0.0, tracking_time=0.0):
+    with _perf_lock:
+        if _perf["start_time"] is None:
+            _perf["start_time"] = time.perf_counter()
+
+        _perf["frames"] += 1
+        _perf["drawing_total"] += drawing_time
+        _perf["jpeg_total"] += jpeg_time
+        _perf["processing_total"] += total_time
+        _perf["jpeg_bytes"] += jpeg_size
+
+        if detected:
+            _perf["detections"] += 1
+            _perf["yolo_total"] += yolo_time
+            _perf["tracking_total"] += tracking_time
+
+        if _perf["frames"] >= _PERF_REPORT_EVERY:
+            _print_perf_report_locked()
+
+
+# ==========================================================
 # VEHICLE WEIGHTS
 # ==========================================================
+# NOTE: not currently applied inside the density calculation (the existing
+# implementation adds raw bounding-box area per lane, unweighted). Left in
+# place unchanged for compatibility with any other code that may import it.
 VEHICLE_WEIGHTS = {
     2: 2,   # car
     3: 1,   # motorcycle
@@ -141,14 +229,24 @@ def generate_frames():
             STREAM_W, STREAM_H = 960, 540
 
         # -----------------------------------------------
-        # Init trackers
+        # Init trackers / lanes
         # -----------------------------------------------
         tracker = Tracker()
         polygons = load_polygons()
         init_lanes(len(polygons))
 
+        # Polygon geometry is static for the lifetime of this video load,
+        # so the per-lane area is computed once instead of on every
+        # detection cycle (previously recomputed ~once per 3 frames).
+        lane_areas = [max(cv2.contourArea(poly), 1) for poly in polygons]
+        lane_indices = range(len(polygons))
+
         frame_index = 0
         last_tracked = []
+
+        # Stats defaults used before the first detection cycle completes.
+        green_lane = None
+        signal_state = "Idle"
 
         # ==================================================
         # FRAME LOOP
@@ -159,29 +257,33 @@ def generate_frames():
                 if _current_video_path != video_path:
                     break
 
-            start = time.time()
+            loop_start = time.perf_counter()
 
             ret, frame = cap.read()
-
             if not ret:
                 break
 
+            # Single resize + single copy for the snapshot buffer.
+            # (Previously this block ran twice per frame.)
             frame = cv2.resize(frame, (STREAM_W, STREAM_H))
-
-            # save clean frame for snapshot
             latest_clean_frame = frame.copy()
 
             # -----------------------------------------------
             # Detection every N frames
             # -----------------------------------------------
-            if frame_index % DETECT_EVERY == 0:
+            detected_this_frame = False
+            yolo_time = 0.0
+            tracking_time = 0.0
 
+            if frame_index % DETECT_EVERY == 0:
+                yolo_start = time.perf_counter()
                 detections = detect_fast(frame)
+                yolo_time = time.perf_counter() - yolo_start
+
+                tracking_start = time.perf_counter()
                 last_tracked = tracker.update(detections)
 
-                lane_fill = {
-                    i: 0 for i in range(len(polygons))
-                }
+                lane_fill = {i: 0 for i in lane_indices}
 
                 for obj in last_tracked:
                     x1, y1, x2, y2, obj_id = obj
@@ -189,10 +291,7 @@ def generate_frames():
                     cx = (x1 + x2) // 2
                     cy = (y1 + y2) // 2
 
-                    weight = 2
-
                     for i, poly in enumerate(polygons):
-
                         inside = cv2.pointPolygonTest(
                             poly,
                             (cx, cy),
@@ -204,22 +303,11 @@ def generate_frames():
                             lane_fill[i] += box_area
                             break
 
-                # -------------------------------------------
-                # Normalize by polygon area
-                # -------------------------------------------
-                lane_areas = [
-                    max(cv2.contourArea(poly), 1)
-                    for poly in polygons
-                ]
-
                 normalized_density = {
                     i: min(lane_fill[i] / lane_areas[i], 1.0)
                     for i in lane_fill
                 }
 
-                # -------------------------------------------
-                # Smart signal logic
-                # -------------------------------------------
                 if polygons:
                     green_lane, signal_state, timer = get_signal_state(
                         normalized_density
@@ -227,6 +315,10 @@ def generate_frames():
                 else:
                     green_lane = None
                     signal_state = "No ROI"
+                    timer = 0
+
+                tracking_time = time.perf_counter() - tracking_start
+                detected_this_frame = True
 
                 with _stats_lock:
                     _current_stats.update({
@@ -242,12 +334,13 @@ def generate_frames():
                     })
 
             # ==================================================
-            # DRAW POLYGONS
+            # DRAW POLYGONS / DETECTIONS / HUD
             # ==================================================
             with _stats_lock:
                 stats = _current_stats.copy()
 
             active_lane = stats["green_lane"]
+            drawing_start = time.perf_counter()
 
             for i, poly in enumerate(polygons):
 
@@ -270,9 +363,6 @@ def generate_frames():
                     2
                 )
 
-            # ==================================================
-            # DRAW DETECTIONS
-            # ==================================================
             for obj in last_tracked:
                 x1, y1, x2, y2, obj_id = obj
 
@@ -294,9 +384,7 @@ def generate_frames():
                     2
                 )
 
-            # ==================================================
-            # HUD TOP BAR
-            # ==================================================
+            # HUD top bar
             overlay = frame.copy()
 
             cv2.rectangle(
@@ -334,9 +422,7 @@ def generate_frames():
                 2
             )
 
-            # ==================================================
-            # DENSITY DISPLAY
-            # ==================================================
+            # Density display
             y_pos = 95
 
             for i, d in stats["density"].items():
@@ -351,14 +437,21 @@ def generate_frames():
                 )
                 y_pos += 28
 
+            drawing_time = time.perf_counter() - drawing_start
+
             # ==================================================
             # ENCODE FRAME
             # ==================================================
+            jpeg_start = time.perf_counter()
+
             ok, buf = cv2.imencode(
                 ".jpg",
                 frame,
                 [cv2.IMWRITE_JPEG_QUALITY, 75]
             )
+
+            jpeg_time = time.perf_counter() - jpeg_start
+            jpeg_size = len(buf) if ok else 0
 
             if ok:
                 yield (
@@ -368,7 +461,23 @@ def generate_frames():
                     b'\r\n'
                 )
 
-            elapsed = time.time() - start
+            total_time = time.perf_counter() - loop_start
+
+            _record_frame_perf(
+                drawing_time=drawing_time,
+                jpeg_time=jpeg_time,
+                jpeg_size=jpeg_size,
+                total_time=total_time,
+                detected=detected_this_frame,
+                yolo_time=yolo_time,
+                tracking_time=tracking_time,
+            )
+
+            # Frame pacing: use the same clock (perf_counter) that `loop_start`
+            # was taken from. The previous version mixed time.time() and
+            # time.perf_counter(), which could produce an incorrect/negative
+            # `elapsed` on some systems.
+            elapsed = time.perf_counter() - loop_start
             wait = frame_delay - elapsed
 
             if wait > 0:

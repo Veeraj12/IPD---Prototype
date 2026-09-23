@@ -1,12 +1,29 @@
 from ultralytics import YOLO
 
 # COCO vehicle class IDs
+# VEHICLE_CLASSES = {
+#     1: "bicycle",
+#     2: "car",
+#     3: "motorcycle",
+#     5: "bus",
+#     7: "truck",
+# }
+#Improvement 4 - 24/09/26 After changing detector to UVH - 26 s
 VEHICLE_CLASSES = {
-    1: "bicycle",
-    2: "car",
-    3: "motorcycle",
-    5: "bus",
-    7: "truck",
+    0: "Hatchback",
+    1: "Sedan",
+    2: "SUV",
+    3: "MUV",
+    4: "Bus",
+    5: "Truck",
+    6: "Three-wheeler",
+    7: "Two-wheeler",
+    8: "LCV",
+    9: "Mini-bus",
+    10: "tempo-traveller",
+    11: "bicycle",
+    12: "Van",
+    13: "Others"
 }
 
 import os
@@ -19,11 +36,11 @@ _model_accurate = None   # yolov8m or best.pt — loaded on first batch request
 
 def _get_best_model_path():
     """Returns path to fine-tuned best.pt if it exists, otherwise None."""
-    best_path = os.path.join(os.path.dirname(__file__), '..', 'training', 'runs', 'traffic_model', 'weights', 'best.pt')
+    best_path = os.path.join(os.path.dirname(__file__), '..', 'training', 'runs', 'traffic_model', 'weights', 'UVH26Ms.pt')
     if os.path.exists(best_path):
         return best_path
     
-    fallback_path = os.path.join(os.path.dirname(__file__), '..', 'best.pt')
+    fallback_path = os.path.join(os.path.dirname(__file__), '..', 'UVH26Ms.pt')
     if os.path.exists(fallback_path):
         return fallback_path
         
@@ -36,6 +53,8 @@ def _get_fast():
         if custom_model:
             print(f"Loading custom fine-tuned model for fast detection: {custom_model}")
             _model_fast = YOLO(custom_model)
+            print("YOLO device:", _model_fast.device)
+            print("YOLO classes:", _model_fast.names)
         else:
             _model_fast = YOLO("yolov8n.pt")
     return _model_fast
@@ -56,6 +75,13 @@ def _get_accurate():
 def _run(model, frame, conf):
     detections = []
     results = model(frame, verbose=False, conf=conf)
+    #Improvement 3 - 24/9/26
+    # results = model(
+    #     frame,
+    #     verbose=False,
+    #     conf=conf,
+    #     imgsz=640
+    # )
     for r in results:
         for box in r.boxes:
             cls_id = int(box.cls[0])
