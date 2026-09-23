@@ -133,7 +133,7 @@ def _record_frame_perf(drawing_time, jpeg_time, jpeg_size, total_time,
 # place unchanged for compatibility with any other code that may import it.
 VEHICLE_WEIGHTS = {
     2: 2,   # car
-    3: 1,   # motorcycle
+    3: 1,   # motorcycle 
     5: 5,   # bus
     7: 6    # truck
 }
