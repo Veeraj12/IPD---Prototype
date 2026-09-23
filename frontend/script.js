@@ -228,7 +228,7 @@ function showUploadResult(type, msg) {
   $uploadStat.className    = `upload-status ${type}`;
   $uploadStat.textContent  = msg;
 }
-
+ 
 function refreshStream() {
   const img = document.getElementById('stream');
   $overlay.classList.remove('hidden');
